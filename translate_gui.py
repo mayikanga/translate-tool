@@ -270,9 +270,10 @@ class TranslateWindow:
             del cfg["sash_pos"]
             save_config(cfg)
         # 先设窗口大小
-        geom = cfg.get("window_geometry", "400x500")
-        self.root.geometry(geom)
-        # 延迟恢复其他设置（等窗口显示、PanedWindow 布局完成）
+        self.root.geometry(cfg.get("window_geometry", "400x500"))
+        # 立即加载 DeepL 配置（不依赖窗口，防止被 _periodic_save 覆盖）
+        self.deepl_key = cfg.get("deepl_key", "")
+        # 延迟恢复分割线等布局设置（等窗口显示、PanedWindow 布局完成）
         self._cfg_restore = cfg
         self.root.after(300, self._apply_delayed)
 
@@ -294,8 +295,6 @@ class TranslateWindow:
             # 恢复自动复制
             if cfg.get("auto_copy", False):
                 self.toggle_auto_copy()
-            # 恢复 DeepL 配置
-            self.deepl_key = cfg.get("deepl_key", "")
         except:
             pass
 
