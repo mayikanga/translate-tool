@@ -109,21 +109,8 @@ class TranslateWindow:
         self.root.iconname("划词翻译")
         self.root.attributes("-topmost", True)
 
-        # 设置窗口图标（用 PhotoImage 生成简易图标）
         try:
-            icon = tk.PhotoImage(width=16, height=16)
-            rows = []
-            for y in range(16):
-                row = []
-                for x in range(16):
-                    if y < 3 or (5 <= x <= 10):
-                        row.append("#1a73e8")
-                    else:
-                        row.append("#f0f0f0")
-                rows.append("{" + " ".join(row) + "}")
-            icon.put(" ".join(rows))
-            self.root.iconphoto(True, icon)
-            self._app_icon = icon  # 防止 GC
+            self.root.iconbitmap(default="")
         except:
             pass
 
