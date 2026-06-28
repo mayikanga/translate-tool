@@ -241,6 +241,10 @@ class TranslateWindow:
 
     def apply_config(self):
         cfg = load_config()
+        # 清理损坏的分割线数据
+        if "sash_pos" in cfg and cfg["sash_pos"] and min(cfg["sash_pos"]) <= 5:
+            del cfg["sash_pos"]
+            save_config(cfg)
         # 先设窗口大小
         geom = cfg.get("window_geometry", "400x500")
         self.root.geometry(geom)
@@ -255,9 +259,10 @@ class TranslateWindow:
             return
         try:
             # 恢复分割线位置（跳过明显错误的值）
-            for i, pos in enumerate(cfg.get("sash_pos", [])):
-                if pos <= 5:
-                    continue
+            sash_pos = cfg.get("sash_pos", [])
+            if sash_pos and min(sash_pos) <= 5:
+                sash_pos = []  # 有坏数据就不恢复
+            for i, pos in enumerate(sash_pos):
                 try:
                     self.pw.sashpos(i, pos)
                 except:
