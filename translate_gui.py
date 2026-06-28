@@ -201,35 +201,20 @@ class TranslateWindow:
         self.trans_text.pack(fill="both", expand=True, padx=6, pady=(0, 4))
         self.pw.add(bot_frame, weight=2)
 
-        # ── 历史面板（第三个面板，默认显示）──
-        self.history_frame = tk.Frame(self.pw, bg="#e8e8e8",
+        # ── 历史面板（第三个面板，与原文/译文相同滚动方式）──
+        self.history_frame = tk.Frame(self.pw, bg="#ffffff",
                                       highlightbackground="#cccccc", highlightthickness=1)
-        self.history_label = tk.Label(self.history_frame, text="📋 剪贴板历史", bg="#e8e8e8", fg="#555",
+        self.history_label = tk.Label(self.history_frame, text="📋 剪贴板历史", bg="#ffffff", fg="#555",
                                        font=("Microsoft YaHei", 8, "bold"), anchor="w")
         self.history_label.pack(fill="x", padx=6, pady=(3, 0))
 
-        # 可滚动容器
-        history_container = tk.Frame(self.history_frame, bg="#ffffff")
-        history_container.pack(fill="both", expand=True, padx=0, pady=(0, 0))
-        self.history_canvas = tk.Canvas(history_container, bg="#ffffff", highlightthickness=0)
-        self.history_scrollbar = ttk.Scrollbar(history_container, orient="vertical", command=self.history_canvas.yview)
-        self.history_list = tk.Frame(self.history_canvas, bg="#ffffff")
-
-        self.history_list.bind("<Configure>", lambda e: self.history_canvas.configure(
-            scrollregion=self.history_canvas.bbox("all")))
-        self.history_canvas.create_window((0, 0), window=self.history_list, anchor="nw", tags="history_window")
-        self.history_canvas.bind("<Configure>", lambda e: self.history_canvas.itemconfig(
-            "history_window", width=e.width))
-        self.history_canvas.configure(yscrollcommand=self.history_scrollbar.set)
-        self.history_canvas.pack(side="left", fill="both", expand=True, padx=(4, 0), pady=(2, 4))
-        self.history_scrollbar.pack(side="right", fill="y", pady=(2, 4))
-
-        # 鼠标滚轮支持
-        def _on_mousewheel(event):
-            self.history_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        self.history_canvas.bind("<Enter>", lambda e: self.history_canvas.bind_all("<MouseWheel>", _on_mousewheel))
-        self.history_canvas.bind("<Leave>", lambda e: self.history_canvas.unbind_all("<MouseWheel>"))
-
+        self.history_text = scrolledtext.ScrolledText(
+            self.history_frame, height=8, wrap="word",
+            font=("Microsoft YaHei", 9), fg="#333",
+            bg="#fafafa", relief="flat", borderwidth=0,
+            padx=4, pady=4, state="disabled"
+        )
+        self.history_text.pack(fill="both", expand=True, padx=4, pady=(0, 4))
         self.pw.add(self.history_frame, weight=2)
         self.history_visible = True
 
@@ -402,50 +387,57 @@ class TranslateWindow:
             pass
 
     def refresh_history(self):
-        for w in self.history_list.winfo_children():
-            w.destroy()
+        self.history_text.configure(state="normal")
+        self.history_text.delete("1.0", "end")
+
         if not self.history:
-            lbl = tk.Label(self.history_list, text="暂无记录", fg="#aaa",
-                           bg="#ffffff", font=("Microsoft YaHei", 9))
-            lbl.pack(padx=4, pady=6)
-            return
+            self.history_text.insert("end", "暂无记录")
+            self.history_text.tag_add("empty", "1.0", "end")
+            self.history_text.tag_config("empty", foreground="#aaaaaa")
+        else:
+            for i, (orig, trans) in enumerate(reversed(self.history)):
+                # 截断长文本
+                o_display = orig.replace("\n", " ").strip()
+                if len(o_display) > 80:
+                    o_display = o_display[:77] + "..."
+                t_display = trans.replace("\n", " ").strip()
+                if len(t_display) > 80:
+                    t_display = t_display[:77] + "..."
 
-        for i, (orig, trans) in enumerate(reversed(self.history)):
-            card = tk.Frame(self.history_list, bg="#f8f8f8",
-                            highlightbackground="#e0e0e0", highlightthickness=1,
-                            cursor="hand2")
-            card.pack(fill="x", pady=2)
+                # 原文行
+                tag_orig = f"orig_{i}"
+                self.history_text.insert("end", f"📖 {o_display}\n", tag_orig)
+                self.history_text.tag_config(tag_orig, foreground="#333333")
+                self.history_text.tag_bind(tag_orig, "<Button-1>",
+                    lambda e, o=orig, t=trans: self.restore_from_history(o, t))
+                self.history_text.tag_bind(tag_orig, "<Enter>",
+                    lambda e: self.history_text.configure(cursor="hand2"))
+                self.history_text.tag_bind(tag_orig, "<Leave>",
+                    lambda e: self.history_text.configure(cursor=""))
 
-            def bind_card(c, o, t):
-                c.bind("<Button-1>", lambda e, oo=o, tt=t: self.restore_from_history(oo, tt))
-                c.bind("<Enter>", lambda e, cc=c: cc.configure(bg="#eef6ff"))
-                c.bind("<Leave>", lambda e, cc=c: cc.configure(bg="#f8f8f8"))
+                # 译文行
+                tag_trans = f"trans_{i}"
+                self.history_text.insert("end", f"🌐 {t_display}  ", tag_trans)
+                self.history_text.tag_config(tag_trans, foreground="#1a73e8")
+                self.history_text.tag_bind(tag_trans, "<Button-1>",
+                    lambda e, o=orig, t=trans: self.restore_from_history(o, t))
+                self.history_text.tag_bind(tag_trans, "<Enter>",
+                    lambda e: self.history_text.configure(cursor="hand2"))
+                self.history_text.tag_bind(tag_trans, "<Leave>",
+                    lambda e: self.history_text.configure(cursor=""))
 
-            bind_card(card, orig, trans)
+                # 复制按钮
+                tag_copy = f"copy_{i}"
+                self.history_text.insert("end", "[复制]\n", tag_copy)
+                self.history_text.tag_config(tag_copy, foreground="#888888", underline=True)
+                self.history_text.tag_bind(tag_copy, "<Button-1>",
+                    lambda e, t=trans: self.copy_to_clipboard(t))
+                self.history_text.tag_bind(tag_copy, "<Enter>",
+                    lambda e: self.history_text.configure(cursor="hand2"))
+                self.history_text.tag_bind(tag_copy, "<Leave>",
+                    lambda e: self.history_text.configure(cursor=""))
 
-            # 原文行
-            o_text = orig.replace("\n", " ").strip()
-            if len(o_text) > 40:
-                o_text = o_text[:37] + "..."
-            o_label = tk.Label(card, text=f"📖 {o_text}", bg="#f8f8f8", fg="#333",
-                               font=("Microsoft YaHei", 9), anchor="w", padx=4)
-            o_label.pack(fill="x", pady=(2, 0))
-            o_label.bind("<Button-1>", lambda e, oo=orig, tt=trans: self.restore_from_history(oo, tt))
-
-            # 译文行 + 一键复制按钮
-            t_text = trans.replace("\n", " ").strip()
-            if len(t_text) > 40:
-                t_text = t_text[:37] + "..."
-            t_row = tk.Frame(card, bg="#f8f8f8")
-            t_row.pack(fill="x", pady=(0, 2))
-            t_label = tk.Label(t_row, text=f"🌐 {t_text}", bg="#f8f8f8", fg="#1a73e8",
-                               font=("Microsoft YaHei", 9, "bold"), anchor="w", padx=4)
-            t_label.pack(side="left", fill="x", expand=True)
-            t_label.bind("<Button-1>", lambda e, oo=orig, tt=trans: self.restore_from_history(oo, tt))
-            copy_btn = tk.Button(t_row, text="📋", font=("Microsoft YaHei", 8),
-                                 bg="#f0f0f0", relief="flat", cursor="hand2",
-                                 command=lambda t=trans: self.copy_to_clipboard(t))
-            copy_btn.pack(side="right", padx=(0, 2))
+        self.history_text.configure(state="disabled")
 
     def restore_from_history(self, orig, trans):
         self.orig_text.delete("1.0", "end")
