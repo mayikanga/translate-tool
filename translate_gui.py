@@ -212,8 +212,9 @@ class TranslateWindow:
             self.history_frame, height=8, wrap="word",
             font=("Microsoft YaHei", 9), fg="#333",
             bg="#fafafa", relief="flat", borderwidth=0,
-            padx=4, pady=4, state="disabled"
+            padx=4, pady=4
         )
+        self.history_text.bind("<Key>", lambda e: "break")  # 禁止编辑，但保留点击
         self.history_text.pack(fill="both", expand=True, padx=4, pady=(0, 4))
         self.pw.add(self.history_frame, weight=2)
         self.history_visible = True
@@ -387,7 +388,6 @@ class TranslateWindow:
             pass
 
     def refresh_history(self):
-        self.history_text.configure(state="normal")
         self.history_text.delete("1.0", "end")
 
         if not self.history:
@@ -436,8 +436,6 @@ class TranslateWindow:
                     lambda e: self.history_text.configure(cursor="hand2"))
                 self.history_text.tag_bind(tag_copy, "<Leave>",
                     lambda e: self.history_text.configure(cursor=""))
-
-        self.history_text.configure(state="disabled")
 
     def restore_from_history(self, orig, trans):
         self.orig_text.delete("1.0", "end")
