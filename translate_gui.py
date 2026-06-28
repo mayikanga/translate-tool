@@ -109,8 +109,21 @@ class TranslateWindow:
         self.root.iconname("划词翻译")
         self.root.attributes("-topmost", True)
 
+        # 设置窗口图标（用 PhotoImage 生成简易图标）
         try:
-            self.root.iconbitmap(default="")
+            icon = tk.PhotoImage(width=16, height=16)
+            rows = []
+            for y in range(16):
+                row = []
+                for x in range(16):
+                    if y < 3 or (5 <= x <= 10):
+                        row.append("#1a73e8")
+                    else:
+                        row.append("#f0f0f0")
+                rows.append("{" + " ".join(row) + "}")
+            icon.put(" ".join(rows))
+            self.root.iconphoto(True, icon)
+            self._app_icon = icon  # 防止 GC
         except:
             pass
 
@@ -201,21 +214,34 @@ class TranslateWindow:
         self.trans_text.pack(fill="both", expand=True, padx=6, pady=(0, 4))
         self.pw.add(bot_frame, weight=2)
 
-        # ── 历史面板（第三个面板，与原文/译文相同滚动方式）──
+        # ── 历史面板（单行条目，复制按钮在最右）──
         self.history_frame = tk.Frame(self.pw, bg="#ffffff",
                                       highlightbackground="#cccccc", highlightthickness=1)
         self.history_label = tk.Label(self.history_frame, text="📋 剪贴板历史", bg="#ffffff", fg="#555",
                                        font=("Microsoft YaHei", 8, "bold"), anchor="w")
         self.history_label.pack(fill="x", padx=6, pady=(3, 0))
 
-        self.history_text = scrolledtext.ScrolledText(
-            self.history_frame, height=8, wrap="word",
-            font=("Microsoft YaHei", 9), fg="#333",
-            bg="#fafafa", relief="flat", borderwidth=0,
-            padx=4, pady=4
-        )
-        self.history_text.bind("<Key>", lambda e: "break")  # 禁止编辑，但保留点击
-        self.history_text.pack(fill="both", expand=True, padx=4, pady=(0, 4))
+        # 可滚动容器
+        self.history_canvas = tk.Canvas(self.history_frame, bg="#fafafa", highlightthickness=0)
+        self.history_scrollbar = ttk.Scrollbar(self.history_frame, orient="vertical",
+                                                command=self.history_canvas.yview)
+        self.history_list = tk.Frame(self.history_canvas, bg="#fafafa")
+
+        self.history_list.bind("<Configure>", lambda e: self.history_canvas.configure(
+            scrollregion=self.history_canvas.bbox("all")))
+        self.history_canvas.create_window((0, 0), window=self.history_list, anchor="nw", tags="history_window")
+        self.history_canvas.bind("<Configure>", lambda e: self.history_canvas.itemconfig(
+            "history_window", width=e.width))
+        self.history_canvas.configure(yscrollcommand=self.history_scrollbar.set)
+        self.history_canvas.pack(side="left", fill="both", expand=True, padx=(4, 0), pady=(2, 4))
+        self.history_scrollbar.pack(side="right", fill="y", pady=(2, 4))
+
+        # 鼠标滚轮支持
+        def _on_wheel(event):
+            self.history_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        self.history_canvas.bind("<Enter>", lambda e: self.history_canvas.bind_all("<MouseWheel>", _on_wheel))
+        self.history_canvas.bind("<Leave>", lambda e: self.history_canvas.unbind_all("<MouseWheel>"))
+
         self.pw.add(self.history_frame, weight=2)
         self.history_visible = True
 
@@ -388,54 +414,48 @@ class TranslateWindow:
             pass
 
     def refresh_history(self):
-        self.history_text.delete("1.0", "end")
-
+        for w in self.history_list.winfo_children():
+            w.destroy()
         if not self.history:
-            self.history_text.insert("end", "暂无记录")
-            self.history_text.tag_add("empty", "1.0", "end")
-            self.history_text.tag_config("empty", foreground="#aaaaaa")
-        else:
-            for i, (orig, trans) in enumerate(reversed(self.history)):
-                # 截断长文本
-                o_display = orig.replace("\n", " ").strip()
-                if len(o_display) > 80:
-                    o_display = o_display[:77] + "..."
-                t_display = trans.replace("\n", " ").strip()
-                if len(t_display) > 80:
-                    t_display = t_display[:77] + "..."
+            lbl = tk.Label(self.history_list, text="暂无记录", fg="#aaa",
+                           bg="#fafafa", font=("Microsoft YaHei", 9))
+            lbl.pack(padx=4, pady=6)
+            return
 
-                # 原文行
-                tag_orig = f"orig_{i}"
-                self.history_text.insert("end", f"📖 {o_display}\n", tag_orig)
-                self.history_text.tag_config(tag_orig, foreground="#333333")
-                self.history_text.tag_bind(tag_orig, "<Button-1>",
-                    lambda e, o=orig, t=trans: self.restore_from_history(o, t))
-                self.history_text.tag_bind(tag_orig, "<Enter>",
-                    lambda e: self.history_text.configure(cursor="hand2"))
-                self.history_text.tag_bind(tag_orig, "<Leave>",
-                    lambda e: self.history_text.configure(cursor=""))
+        for orig, trans in reversed(self.history):
+            # 单行显示，超长截断
+            o_line = orig.replace("\n", " ").strip()
+            if len(o_line) > 28:
+                o_line = o_line[:25] + "..."
+            t_line = trans.replace("\n", " ").strip()
+            if len(t_line) > 36:
+                t_line = t_line[:33] + "..."
 
-                # 译文行
-                tag_trans = f"trans_{i}"
-                self.history_text.insert("end", f"🌐 {t_display}  ", tag_trans)
-                self.history_text.tag_config(tag_trans, foreground="#1a73e8")
-                self.history_text.tag_bind(tag_trans, "<Button-1>",
-                    lambda e, o=orig, t=trans: self.restore_from_history(o, t))
-                self.history_text.tag_bind(tag_trans, "<Enter>",
-                    lambda e: self.history_text.configure(cursor="hand2"))
-                self.history_text.tag_bind(tag_trans, "<Leave>",
-                    lambda e: self.history_text.configure(cursor=""))
+            row = tk.Frame(self.history_list, bg="#ffffff",
+                           highlightbackground="#e8e8e8", highlightthickness=1)
+            row.pack(fill="x", padx=2, pady=1)
 
-                # 复制按钮
-                tag_copy = f"copy_{i}"
-                self.history_text.insert("end", "[复制]\n", tag_copy)
-                self.history_text.tag_config(tag_copy, foreground="#888888", underline=True)
-                self.history_text.tag_bind(tag_copy, "<Button-1>",
-                    lambda e, t=trans: self.copy_to_clipboard(t))
-                self.history_text.tag_bind(tag_copy, "<Enter>",
-                    lambda e: self.history_text.configure(cursor="hand2"))
-                self.history_text.tag_bind(tag_copy, "<Leave>",
-                    lambda e: self.history_text.configure(cursor=""))
+            # 原文（点击恢复）
+            o_lbl = tk.Label(row, text=f"📖 {o_line}", bg="#ffffff", fg="#333",
+                             font=("Microsoft YaHei", 9), anchor="w", cursor="hand2")
+            o_lbl.pack(side="left", padx=(4, 0))
+            o_lbl.bind("<Button-1>", lambda e, o=orig, t=trans: self.restore_from_history(o, t))
+            o_lbl.bind("<Enter>", lambda e: o_lbl.configure(bg="#eef6ff"))
+            o_lbl.bind("<Leave>", lambda e: o_lbl.configure(bg="#ffffff"))
+
+            # 译文（点击恢复）
+            t_lbl = tk.Label(row, text=f"🌐 {t_line}", bg="#ffffff", fg="#1a73e8",
+                             font=("Microsoft YaHei", 9, "bold"), anchor="w", cursor="hand2")
+            t_lbl.pack(side="left", padx=(8, 0))
+            t_lbl.bind("<Button-1>", lambda e, o=orig, t=trans: self.restore_from_history(o, t))
+            t_lbl.bind("<Enter>", lambda e: t_lbl.configure(bg="#eef6ff"))
+            t_lbl.bind("<Leave>", lambda e: t_lbl.configure(bg="#ffffff"))
+
+            # 复制按钮（最后面）
+            tk.Button(row, text="📋", font=("Microsoft YaHei", 8),
+                      bg="#f0f0f0", relief="flat", cursor="hand2",
+                      command=lambda t=trans: self.copy_to_clipboard(t)
+                      ).pack(side="right", padx=(0, 2))
 
     def restore_from_history(self, orig, trans):
         self.orig_text.delete("1.0", "end")
