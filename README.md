@@ -13,7 +13,7 @@ A lightweight Windows desktop translation tool. Copy any text and get instant tr
 
 - **📋 剪贴板监听** — 复制任何文字后自动检测并翻译
 - **⚡ 选中即复制** — 开启「自动」模式，选中文字直接翻译（每 300ms 扫描）
-- **🌐 Google 翻译引擎** — 自动检测源语言，翻译为中文
+- **🌐 Microsoft Azure Translator** — 每月 200 万字符免费，国内可用
 - **📖 历史记录** — 保存最近 5 条翻译，点击恢复或一键复制译文
 - **📌 窗口置顶** — 始终在前，方便查阅
 - **🖱️ 右键菜单** — 快速切换各项功能
@@ -21,7 +21,7 @@ A lightweight Windows desktop translation tool. Copy any text and get instant tr
 
 - **📋 Clipboard Monitoring** — Auto-detect and translate any copied text
 - **⚡ Auto-Copy Mode** — Select text and it's translated instantly (300ms polling)
-- **🌐 Google Translate Engine** — Auto-detect source language, output Chinese
+- **🌐 Microsoft Azure Translator** — 2M free chars/month, works in China
 - **📖 History** — Last 5 translations saved, click to restore or copy
 - **📌 Always on Top** — Stays visible while you work
 - **🖱️ Context Menu** — Quick access to all features
@@ -67,7 +67,7 @@ python translate_gui.py
 - **Python 3** (标准库, no third-party dependencies)
 - **Tkinter** — GUI 框架 / UI framework
 - **Win32 API** — 剪贴板监听 / Clipboard monitoring via `ctypes`
-- **Google Translate API** — 翻译引擎 / Translation engine (free web API)
+- **Microsoft Azure Translator API** — 翻译引擎 / Translation engine (free tier: 2M chars/month)
 
 ## 许可 / License
 

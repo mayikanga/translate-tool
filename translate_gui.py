@@ -1,7 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, scrolledtext
 import urllib.request
-import urllib.parse
 import json
 import ctypes
 from ctypes import wintypes
@@ -126,6 +125,10 @@ class TranslateWindow:
         self.auto_copy = False
         self.auto_copy_active = False
 
+        # Azure Translator 配置
+        self.azure_key = ""
+        self.azure_region = "eastasia"
+
         # ── GUI ──
         self.setup_gui()
 
@@ -233,7 +236,7 @@ class TranslateWindow:
         self.history_visible = True
 
         # ── 状态栏 ──
-        self.status_var = tk.StringVar(value="就绪 — Ctrl+C 复制后自动翻译  |  工具栏「自动」开启选中即复制")
+        self.status_var = tk.StringVar(value="就绪 — 右键菜单「Azure 设置」配置 API Key 即可翻译  |  工具栏「自动」开启选中即复制")
         status_bar = ttk.Label(self.root, textvariable=self.status_var,
                                 font=("Microsoft YaHei", 8), foreground="#888")
         status_bar.pack(fill="x", padx=8, pady=(0, 4))
@@ -247,6 +250,8 @@ class TranslateWindow:
         self.context_menu.add_command(label="切换置顶", command=self.toggle_topmost)
         self.context_menu.add_command(label="剪贴板历史", command=self.toggle_history)
         self.context_menu.add_command(label="选中即复制", command=self.toggle_auto_copy)
+        self.context_menu.add_separator()
+        self.context_menu.add_command(label="Azure 设置", command=self._configure_azure)
         self.context_menu.add_separator()
         self.context_menu.add_command(label="退出", command=self.on_close)
         self.root.bind("<Button-3>", self.show_context_menu)
@@ -290,6 +295,9 @@ class TranslateWindow:
             # 恢复自动复制
             if cfg.get("auto_copy", False):
                 self.toggle_auto_copy()
+            # 恢复 Azure 配置
+            self.azure_key = cfg.get("azure_key", "")
+            self.azure_region = cfg.get("azure_region", "eastasia")
         except:
             pass
 
@@ -314,6 +322,8 @@ class TranslateWindow:
             except:
                 cfg["sash_pos"] = []
         cfg["auto_copy"] = self.auto_copy
+        cfg["azure_key"] = self.azure_key
+        cfg["azure_region"] = self.azure_region
         cfg["history_visible"] = True
         save_config(cfg)
 
@@ -490,20 +500,19 @@ class TranslateWindow:
             self.translating = False
 
     def _call_api(self, text):
-        url = (
-            "https://translate.googleapis.com/translate_a/single"
-            f"?client=gtx&sl=auto&tl=zh&dt=t&q={urllib.parse.quote(text)}"
-        )
-        req = urllib.request.Request(url, headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        })
+        if not self.azure_key:
+            raise Exception("请先配置 Azure API Key（右键 → Azure 设置）")
+        url = "https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&to=zh"
+        headers = {
+            "Ocp-Apim-Subscription-Key": self.azure_key,
+            "Ocp-Apim-Subscription-Region": self.azure_region,
+            "Content-Type": "application/json",
+        }
+        body = json.dumps([{"Text": text}]).encode("utf-8")
+        req = urllib.request.Request(url, data=body, headers=headers)
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-            segments = []
-            for item in data[0]:
-                if item and len(item) > 0 and item[0]:
-                    segments.append(item[0])
-            return "".join(segments)
+            return data[0]["translations"][0]["text"]
 
     def _update_display(self, original, translation):
         self.orig_text.delete("1.0", "end")
@@ -522,6 +531,37 @@ class TranslateWindow:
 
     def _show_error(self, error_msg):
         self.status_var.set(f"✗ 翻译失败: {error_msg}")
+
+    # ── Azure 设置 ──
+
+    def _configure_azure(self):
+        """弹窗设置 Azure API Key 和 Region"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Azure Translator 设置")
+        dialog.geometry("460x200")
+        dialog.resizable(False, False)
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        tk.Label(dialog, text="API Key:", font=("Microsoft YaHei", 9)).pack(anchor="w", padx=16, pady=(12, 2))
+        key_entry = tk.Entry(dialog, width=60, font=("Consolas", 9))
+        key_entry.insert(0, self.azure_key)
+        key_entry.pack(padx=16, pady=(0, 6))
+
+        tk.Label(dialog, text="Region（地区，如 eastasia、westus、japaneast）:", font=("Microsoft YaHei", 9)).pack(anchor="w", padx=16, pady=(4, 2))
+        region_entry = tk.Entry(dialog, width=24, font=("Consolas", 9))
+        region_entry.insert(0, self.azure_region)
+        region_entry.pack(anchor="w", padx=16, pady=(0, 6))
+
+        def save():
+            self.azure_key = key_entry.get().strip()
+            self.azure_region = region_entry.get().strip() or "eastasia"
+            self._do_save_config()
+            dialog.destroy()
+            self.status_var.set("✅ Azure 配置已保存")
+
+        tk.Button(dialog, text="保存", command=save, bg="#1a73e8", fg="white",
+                  font=("Microsoft YaHei", 9), padx=20).pack(pady=(6, 0))
 
     def on_close(self):
         self._do_save_config()
