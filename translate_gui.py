@@ -428,34 +428,36 @@ class TranslateWindow:
             if len(o_line) > 28:
                 o_line = o_line[:25] + "..."
             t_line = trans.replace("\n", " ").strip()
-            if len(t_line) > 36:
-                t_line = t_line[:33] + "..."
+            if len(t_line) > 40:
+                t_line = t_line[:37] + "..."
 
-            row = tk.Frame(self.history_list, bg="#ffffff",
-                           highlightbackground="#e8e8e8", highlightthickness=1)
-            row.pack(fill="x", padx=2, pady=1)
+            entry = tk.Frame(self.history_list, bg="#ffffff",
+                             highlightbackground="#e8e8e8", highlightthickness=1)
+            entry.pack(fill="x", padx=2, pady=1)
 
-            # 原文（点击恢复）
-            o_lbl = tk.Label(row, text=f"📖 {o_line}", bg="#ffffff", fg="#333",
+            # 第一行：原文 + 复制按钮
+            row1 = tk.Frame(entry, bg="#ffffff")
+            row1.pack(fill="x")
+            o_lbl = tk.Label(row1, text=f"📖 {o_line}", bg="#ffffff", fg="#333",
                              font=("Microsoft YaHei", 9), anchor="w", cursor="hand2")
-            o_lbl.pack(side="left", padx=(4, 0))
+            o_lbl.pack(side="left", padx=(4, 0), fill="x", expand=True)
             o_lbl.bind("<Button-1>", lambda e, o=orig, t=trans: self.restore_from_history(o, t))
             o_lbl.bind("<Enter>", lambda e: o_lbl.configure(bg="#eef6ff"))
             o_lbl.bind("<Leave>", lambda e: o_lbl.configure(bg="#ffffff"))
-
-            # 译文（点击恢复）
-            t_lbl = tk.Label(row, text=f"🌐 {t_line}", bg="#ffffff", fg="#1a73e8",
-                             font=("Microsoft YaHei", 9, "bold"), anchor="w", cursor="hand2")
-            t_lbl.pack(side="left", padx=(8, 0))
-            t_lbl.bind("<Button-1>", lambda e, o=orig, t=trans: self.restore_from_history(o, t))
-            t_lbl.bind("<Enter>", lambda e: t_lbl.configure(bg="#eef6ff"))
-            t_lbl.bind("<Leave>", lambda e: t_lbl.configure(bg="#ffffff"))
-
-            # 复制按钮（最后面）
-            tk.Button(row, text="📋", font=("Microsoft YaHei", 8),
+            tk.Button(row1, text="📋", font=("Microsoft YaHei", 8),
                       bg="#f0f0f0", relief="flat", cursor="hand2",
                       command=lambda t=trans: self.copy_to_clipboard(t)
                       ).pack(side="right", padx=(0, 2))
+
+            # 第二行：译文
+            row2 = tk.Frame(entry, bg="#ffffff")
+            row2.pack(fill="x")
+            t_lbl = tk.Label(row2, text=f"🌐 {t_line}", bg="#ffffff", fg="#1a73e8",
+                             font=("Microsoft YaHei", 9, "bold"), anchor="w", cursor="hand2")
+            t_lbl.pack(side="left", padx=(4, 0))
+            t_lbl.bind("<Button-1>", lambda e, o=orig, t=trans: self.restore_from_history(o, t))
+            t_lbl.bind("<Enter>", lambda e: t_lbl.configure(bg="#eef6ff"))
+            t_lbl.bind("<Leave>", lambda e: t_lbl.configure(bg="#ffffff"))
 
     def restore_from_history(self, orig, trans):
         self.orig_text.delete("1.0", "end")
