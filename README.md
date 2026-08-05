@@ -7,6 +7,8 @@
 
 A lightweight Windows desktop translation tool. Copy any text and get instant translations — just select and go.
 
+开发者指南 / Developer Guide：[translate-developer-guide.md](translate-developer-guide.md)
+
 ---
 
 ## 功能特点 / Features
@@ -62,12 +64,21 @@ python translate_gui.py
 3. Enable the "Auto" button → **select text to translate instantly**
 4. `Ctrl+L` to clear, right-click for more options
 
+首次使用需要右键打开「DeepL 设置」，填写 DeepL Auth Key。翻译请求由本地程序直接发送到 DeepL API，不经过本项目的后端服务。
+
 ## 技术栈 / Tech Stack
 
 - **Python 3** (标准库, no third-party dependencies)
 - **Tkinter** — GUI 框架 / UI framework
 - **Win32 API** — 剪贴板监听 / Clipboard monitoring via `ctypes`
 - **DeepL API** — 翻译引擎 / Translation engine (free tier: 500K chars/month, email only)
+
+## 技术实现 / Implementation
+
+- 使用 Windows 剪贴板序列号检测变化，读取 `CF_UNICODETEXT` 文本并过滤重复内容。
+- 使用后台线程执行 DeepL 网络请求，通过 Tkinter `root.after()` 回到主线程更新界面。
+- 翻译进行中只保留最新待处理文本，避免连续复制产生无限请求队列。
+- 配置文件保存窗口尺寸、面板分割线、自动复制状态和 DeepL 配置。
 
 ## 许可 / License
 
