@@ -9,6 +9,10 @@ A lightweight Windows desktop translation tool. Copy any text and get instant tr
 
 开发者指南 / Developer Guide：[translate-developer-guide.md](translate-developer-guide.md)
 
+## 界面预览 / Screenshot
+
+![Clipboard Translate 主界面](screenshots/translate-tool-window.png)
+
 ---
 
 ## 功能特点 / Features
@@ -79,6 +83,21 @@ python translate_gui.py
 - 使用后台线程执行 DeepL 网络请求，通过 Tkinter `root.after()` 回到主线程更新界面。
 - 翻译进行中只保留最新待处理文本，避免连续复制产生无限请求队列。
 - 配置文件保存窗口尺寸、面板分割线、自动复制状态和 DeepL 配置。
+
+### 技术架构 / Architecture
+
+```mermaid
+flowchart TD
+    A["复制或选中文本"] --> B["Windows 剪贴板序列号检测"]
+    B --> C["读取 Unicode 文本并去重"]
+    C --> D["单任务队列：保留最新文本"]
+    D --> E["后台线程调用 DeepL API"]
+    E --> F["root.after 切回 Tkinter 主线程"]
+    F --> G["更新原文、译文和最近 5 条历史"]
+    H["自动模式：300ms 模拟 Ctrl+C"] --> A
+    I[".translate_config.json"] --> J["恢复窗口和功能配置"]
+    G --> J
+```
 
 ## 许可 / License
 
